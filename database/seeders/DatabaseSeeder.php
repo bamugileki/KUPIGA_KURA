@@ -26,5 +26,8 @@ class DatabaseSeeder extends Seeder
                 'email_verified' => true,
             ]);
         }
+
+        $this->call(Election2025Seeder::class);
+        $this->call(ElectionDataSeeder::class);
     }
 }

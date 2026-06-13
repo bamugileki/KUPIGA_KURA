@@ -15,6 +15,8 @@ use App\Models\Objection;
 use App\Models\CodeConductViolation;
 use App\Models\PoliticalParty;
 use App\Models\NominationSupport;
+use App\Models\Position;
+use App\Models\AccessibilityLog;
 use App\Services\VotingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -193,6 +195,10 @@ class AdminController extends Controller
                 'language' => 'en',
                 'age' => $request->age,
                 'is_verified' => $request->status === 'active',
+                'accessibility_enabled' => $request->boolean('accessibility_enabled'),
+                'accessibility_mode' => $request->input('accessibility_mode', 'normal'),
+                'high_contrast' => $request->boolean('high_contrast'),
+                'text_size' => $request->input('text_size', 'medium'),
             ]);
 
             AuditLog::create([
@@ -246,6 +252,10 @@ class AdminController extends Controller
             $user->status = $request->status;
             $user->age = $request->age;
             $user->is_verified = $request->status === 'active';
+            $user->accessibility_enabled = $request->boolean('accessibility_enabled');
+            $user->accessibility_mode = $request->input('accessibility_mode', 'normal');
+            $user->high_contrast = $request->boolean('high_contrast');
+            $user->text_size = $request->input('text_size', 'medium');
             $user->save();
 
             if ($request->filled('password')) {
@@ -360,10 +370,11 @@ class AdminController extends Controller
         return redirect()->route('admin.candidates')->with('success', 'Candidate has been approved successfully.');
     }
 
-    public function rejectCandidate($candidateId)
+    public function rejectCandidate(Request $request, $candidateId)
     {
         $candidate = Candidate::findOrFail($candidateId);
         $candidate->status = 'rejected';
+        $candidate->rejection_reason = $request->input('rejection_reason') ?: $request->query('rejection_reason');
         $candidate->save();
 
         if ($candidate->user) {
@@ -374,9 +385,9 @@ class AdminController extends Controller
         AuditLog::create([
             'user_id' => Auth::id(),
             'action' => 'CANDIDATE_REJECTED',
-            'details' => "Rejected candidate {$candidate->user->full_name}",
-            'ip_address' => request()->ip(),
-            'device_info' => request()->userAgent(),
+            'details' => "Rejected candidate {$candidate->user->full_name}" . ($candidate->rejection_reason ? ": {$candidate->rejection_reason}" : ''),
+            'ip_address' => $request->ip(),
+            'device_info' => $request->userAgent(),
             'timestamp' => Carbon::now(),
         ]);
 
@@ -395,7 +406,7 @@ class AdminController extends Controller
             $request->validate([
                 'title_en' => 'required|string|max:200',
                 'title_sw' => 'required|string|max:200',
-                'election_type' => 'required|in:presidential,parliamentary,councillor',
+                'election_type' => 'required|exists:positions,slug',
                 'nomination_start' => 'nullable|date',
                 'nomination_end' => 'nullable|date|after:nomination_start',
                 'campaign_start' => 'nullable|date',
@@ -503,6 +514,12 @@ class AdminController extends Controller
         if ($targetStatus === 'closed') {
             $election->voting_enabled = false;
             $election->objection_deadline = Carbon::now()->addDays(7);
+            $results = $this->votingService->computeResults($election);
+            if (!empty($results['candidates'])) {
+                $winner = $results['candidates'][0];
+                $election->winner_declared = true;
+                $election->winner_candidate_id = $winner['candidate']->id;
+            }
         }
         if ($targetStatus === 'objection_period') {
             if (!$election->objection_deadline) {
@@ -573,44 +590,75 @@ class AdminController extends Controller
 
     public function generateResults($electionId)
     {
+        return redirect()->route('admin.elections')->with('info', 'Results are generated automatically from votes. No manual generation needed.');
+    }
+
+    public function declareWinner($electionId)
+    {
         $election = Election::findOrFail($electionId);
-        if (!in_array($election->status, ['active', 'closed'])) {
-            return redirect()->route('admin.elections')->with('error', 'Results can only be generated after voting is closed.');
+        if (!in_array($election->status, ['closed', 'objection_period'])) {
+            return redirect()->route('admin.elections')->with('error', 'Winner can only be declared for closed elections.');
         }
-        $election->status = 'closed';
-        $election->voting_enabled = false;
-        if (!$election->objection_deadline) {
-            $election->objection_deadline = Carbon::now()->addDays(7);
+
+        $results = $this->votingService->computeResults($election);
+        if (empty($results['candidates'])) {
+            return redirect()->route('admin.elections')->with('error', 'No votes recorded for this election.');
         }
+
+        $winner = $results['candidates'][0];
+
+        $election->winner_declared = true;
+        $election->winner_candidate_id = $winner['candidate']->id;
         $election->save();
 
         AuditLog::create([
             'user_id' => Auth::id(),
-            'action' => 'RESULTS_GENERATED',
-            'details' => "Generated results for election '{$election->title_en}'",
+            'action' => 'WINNER_DECLARED',
+            'details' => "Declared winner for election '{$election->title_en}': {$winner['candidate']->full_name} ({$winner['vote_count']} votes, {$winner['percentage']}%)",
             'ip_address' => request()->ip(),
             'device_info' => request()->userAgent(),
             'timestamp' => Carbon::now(),
         ]);
 
-        return redirect()->route('admin.elections')->with('success', 'Results have been generated successfully.');
+        return redirect()->route('admin.elections')
+            ->with('success', "Winner declared: {$winner['candidate']->full_name} with {$winner['vote_count']} votes ({$winner['percentage']}%).");
+    }
+
+    public function revokeWinner($electionId)
+    {
+        $election = Election::findOrFail($electionId);
+        $election->winner_declared = false;
+        $election->winner_candidate_id = null;
+        $election->save();
+
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'WINNER_REVOKED',
+            'details' => "Revoked winner declaration for election '{$election->title_en}'",
+            'ip_address' => request()->ip(),
+            'device_info' => request()->userAgent(),
+            'timestamp' => Carbon::now(),
+        ]);
+
+        return redirect()->route('admin.elections')->with('success', 'Winner declaration has been revoked.');
     }
 
     public function registerCandidate(Request $request, $position = null)
     {
-        $validPositions = ['presidential', 'parliamentary', 'councillor'];
+        $validPositions = Position::pluck('slug')->toArray();
         if ($position && !in_array($position, $validPositions)) {
             abort(404);
         }
 
         if ($request->isMethod('post')) {
-            $isPresidential = $request->position === 'presidential';
-            $minAge = $isPresidential ? 40 : 21;
+            $pos = Position::where('slug', $request->position)->first();
+            $isPresidential = $pos && $pos->requires_running_mate;
+            $minAge = $pos ? $pos->min_age : 18;
 
             $rules = [
                 'user_id' => 'required|integer|exists:users,id',
                 'election_id' => 'required|integer|exists:elections,id',
-                'position' => 'required|in:presidential,parliamentary,councillor',
+                'position' => 'required|exists:positions,slug',
                 'manifesto' => 'nullable|string',
                 'full_name' => 'required|string|max:100',
                 'gender' => 'required|in:male,female,other',
@@ -628,10 +676,11 @@ class AdminController extends Controller
                 'political_experience' => 'nullable|string',
             ];
 
-            if ($isPresidential) {
+            if ($pos && $pos->requires_running_mate) {
                 $rules['running_mate_name'] = 'required|string|max:100';
                 $rules['running_mate_photo'] = 'nullable|image|mimes:jpg,jpeg,png|max:2048';
-            } else {
+            }
+            if ($pos && $pos->requires_constituency) {
                 $rules['constituency_id'] = 'required|integer|exists:constituencies,id';
                 $rules['residential_address'] = 'required|string|max:255';
                 $rules['party_membership_number'] = 'nullable|string|max:50';
@@ -661,20 +710,20 @@ class AdminController extends Controller
                     ->withInput();
             }
 
-            // One party per presidential election
-            if ($isPresidential) {
+            // One party per position for running-mate positions
+            if ($pos && $pos->requires_running_mate) {
                 $dupParty = Candidate::where('party_id', $request->party_id)
                     ->where('election_id', $request->election_id)
-                    ->where('position', 'presidential')
+                    ->where('position', $request->position)
                     ->exists();
                 if ($dupParty) {
-                    return back()->with('error', 'This party already has a presidential candidate for this election.')
+                    return back()->with('error', 'This party already has a candidate for this position in this election.')
                         ->withInput();
                 }
             }
 
-            // One candidate per party per constituency for parliamentary/councillor
-            if (in_array($request->position, ['parliamentary', 'councillor'])) {
+            // One candidate per party per constituency
+            if ($pos && $pos->requires_constituency) {
                 $dupConstituency = Candidate::where('party_id', $request->party_id)
                     ->where('constituency_id', $request->constituency_id)
                     ->whereIn('position', ['parliamentary', 'councillor'])
@@ -779,7 +828,8 @@ class AdminController extends Controller
             ->get();
         $constituencies = Constituency::orderBy('region')->orderBy('name')->get();
         $parties = PoliticalParty::where('status', 'active')->orderBy('name')->get();
-        return view('admin.register_candidate', compact('users', 'elections', 'presetPosition', 'constituencies', 'parties'));
+        $positions = Position::orderBy('sort_order')->get();
+        return view('admin.register_candidate', compact('users', 'elections', 'presetPosition', 'constituencies', 'parties', 'positions'));
     }
 
     // ========== Nomination Support Management ==========
@@ -853,6 +903,24 @@ class AdminController extends Controller
         return view('admin.results', compact('resultsData', 'elections'));
     }
 
+    public function exportResultsPdf($electionId)
+    {
+        $election = Election::findOrFail($electionId);
+        $results = $this->votingService->computeResults($election);
+        $position = Position::where('slug', $election->election_type)->first();
+
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'RESULTS_EXPORTED_PDF',
+            'details' => "Exported PDF results for election '{$election->title_en}'",
+            'ip_address' => request()->ip(),
+            'device_info' => request()->userAgent(),
+            'timestamp' => Carbon::now(),
+        ]);
+
+        return view('admin.results_pdf', compact('election', 'results', 'position'));
+    }
+
     public function exportResults($electionId)
     {
         $election = Election::findOrFail($electionId);
@@ -865,24 +933,36 @@ class AdminController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $callback = function() use ($results) {
+        $callback = function() use ($results, $election) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Rank', 'Candidate', 'Party', 'Constituency', 'Votes', 'Percentage']);
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Tume Huru ya Taifa ya Uchaguzi Tanzania — Election Results Report']);
+            fputcsv($handle, [$election->title_en . ' | ' . ($election->title_sw ?? '')]);
+            fputcsv($handle, ['Generated: ' . now()->format('d M Y H:i:s')]);
+            fputcsv($handle, ['Status: ' . ucfirst($election->status) . ($election->winner_declared ? ' | WINNER DECLARED' : '')]);
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Rank', 'Candidate', 'Party', 'Running Mate', 'Constituency', 'Votes', 'Percentage', 'Status']);
 
             foreach ($results['candidates'] as $item) {
                 $candidate = $item['candidate'];
+                $isWinner = $election->winner_declared && $item['rank'] === 1;
                 fputcsv($handle, [
                     $item['rank'],
                     $candidate->full_name ?? $candidate->user->full_name,
                     $candidate->party_abbreviation ?? '',
+                    $candidate->running_mate_name ?? '',
                     $candidate->constituency ?? '',
                     $item['vote_count'],
                     $item['percentage'] . '%',
+                    $isWinner ? 'WINNER' : '',
                 ]);
             }
 
             fputcsv($handle, []);
             fputcsv($handle, ['Total Votes', $results['total_votes']]);
+            fputcsv($handle, ['Total Candidates', count($results['candidates'])]);
 
             fclose($handle);
         };
@@ -928,6 +1008,122 @@ class AdminController extends Controller
 
         $settings = Setting::getAll();
         return view('admin.settings', compact('settings'));
+    }
+
+    // ========== Positions Management ==========
+
+    public function positions()
+    {
+        $positions = Position::orderBy('sort_order')->get();
+        return view('admin.positions', compact('positions'));
+    }
+
+    public function createPosition(Request $request)
+    {
+        if ($request->isMethod('post')) {
+            $request->validate([
+                'slug' => 'required|string|max:50|unique:positions,slug',
+                'name_en' => 'required|string|max:100',
+                'name_sw' => 'required|string|max:100',
+                'description' => 'nullable|string',
+                'min_age' => 'required|integer|min:1|max:150',
+                'requires_constituency' => 'boolean',
+                'requires_running_mate' => 'boolean',
+                'sort_order' => 'required|integer|min:0',
+            ]);
+
+            Position::create([
+                'slug' => $request->slug,
+                'name_en' => $request->name_en,
+                'name_sw' => $request->name_sw,
+                'description' => $request->description,
+                'min_age' => $request->min_age,
+                'requires_constituency' => $request->boolean('requires_constituency'),
+                'requires_running_mate' => $request->boolean('requires_running_mate'),
+                'sort_order' => $request->sort_order,
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'POSITION_CREATED',
+                'details' => "Created position '{$request->name_en}' ({$request->slug})",
+                'ip_address' => $request->ip(),
+                'device_info' => $request->userAgent(),
+                'timestamp' => Carbon::now(),
+            ]);
+
+            return redirect()->route('admin.positions')->with('success', 'Position created successfully.');
+        }
+
+        return view('admin.position_form');
+    }
+
+    public function editPosition(Request $request, $id)
+    {
+        $position = Position::findOrFail($id);
+
+        if ($request->isMethod('post')) {
+            $request->validate([
+                'slug' => 'required|string|max:50|unique:positions,slug,' . $id,
+                'name_en' => 'required|string|max:100',
+                'name_sw' => 'required|string|max:100',
+                'description' => 'nullable|string',
+                'min_age' => 'required|integer|min:1|max:150',
+                'requires_constituency' => 'boolean',
+                'requires_running_mate' => 'boolean',
+                'sort_order' => 'required|integer|min:0',
+            ]);
+
+            $position->update([
+                'slug' => $request->slug,
+                'name_en' => $request->name_en,
+                'name_sw' => $request->name_sw,
+                'description' => $request->description,
+                'min_age' => $request->min_age,
+                'requires_constituency' => $request->boolean('requires_constituency'),
+                'requires_running_mate' => $request->boolean('requires_running_mate'),
+                'sort_order' => $request->sort_order,
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'POSITION_UPDATED',
+                'details' => "Updated position '{$position->name_en}'",
+                'ip_address' => $request->ip(),
+                'device_info' => $request->userAgent(),
+                'timestamp' => Carbon::now(),
+            ]);
+
+            return redirect()->route('admin.positions')->with('success', 'Position updated successfully.');
+        }
+
+        return view('admin.position_form', compact('position'));
+    }
+
+    public function deletePosition($id)
+    {
+        $position = Position::findOrFail($id);
+
+        $electionCount = Election::where('election_type', $position->slug)->count();
+        $candidateCount = Candidate::where('position', $position->slug)->count();
+
+        if ($electionCount > 0 || $candidateCount > 0) {
+            return redirect()->route('admin.positions')
+                ->with('error', "Cannot delete '{$position->name_en}': {$electionCount} elections and {$candidateCount} candidates use this position.");
+        }
+
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'POSITION_DELETED',
+            'details' => "Deleted position '{$position->name_en}' ({$position->slug})",
+            'ip_address' => request()->ip(),
+            'device_info' => request()->userAgent(),
+            'timestamp' => Carbon::now(),
+        ]);
+
+        $position->delete();
+
+        return redirect()->route('admin.positions')->with('success', 'Position deleted successfully.');
     }
 
     // ========== Objections Management ==========
@@ -1047,6 +1243,14 @@ class AdminController extends Controller
         return view('admin.assisted_votes', compact('assistedVotes'));
     }
 
+    public function accessibilityLogs()
+    {
+        $logs = AccessibilityLog::with('user')
+            ->latest('changed_at')
+            ->get();
+        return view('admin.accessibility_logs', compact('logs'));
+    }
+
     // ========== Delete All Candidates ==========
 
     public function deleteAllCandidates()
@@ -1099,9 +1303,12 @@ class AdminController extends Controller
             return redirect()->route('admin.elections')->with('error', 'Cannot delete an active election. Close it first.');
         }
 
+        if ($election->votes()->count() > 0) {
+            return redirect()->route('admin.elections')->with('error', 'Cannot delete an election that has votes. Votes are immutable.');
+        }
+
         $title = $election->title_en;
 
-        Vote::where('election_id', $election->id)->delete();
         AssistedVote::where('election_id', $election->id)->delete();
 
         foreach ($election->candidates as $candidate) {
@@ -1127,40 +1334,14 @@ class AdminController extends Controller
 
     public function deleteAllVotes()
     {
-        $count = Vote::count();
-        Vote::truncate();
-        AssistedVote::truncate();
-
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'ALL_VOTES_DELETED',
-            'details' => "Deleted all {$count} vote records and assisted votes.",
-            'ip_address' => request()->ip(),
-            'device_info' => request()->userAgent(),
-            'timestamp' => Carbon::now(),
-        ]);
-
-        return redirect()->route('admin.votes')->with('success', "All {$count} votes deleted successfully.");
+        return redirect()->route('admin.votes')->with('error', 'Votes are immutable and cannot be deleted.');
     }
 
     // ========== Clear All Results ==========
 
     public function clearResults()
     {
-        $count = Vote::count();
-        Vote::truncate();
-        AssistedVote::truncate();
-
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'RESULTS_CLEARED',
-            'details' => "Cleared all results by deleting {$count} vote records.",
-            'ip_address' => request()->ip(),
-            'device_info' => request()->userAgent(),
-            'timestamp' => Carbon::now(),
-        ]);
-
-        return redirect()->route('admin.results')->with('success', "All results cleared successfully.");
+        return redirect()->route('admin.results')->with('error', 'Results cannot be cleared. Votes are immutable.');
     }
 
     // ========== Delete All Audit Logs ==========

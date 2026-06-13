@@ -8,6 +8,7 @@ use App\Models\Candidate;
 use App\Models\Vote;
 use App\Models\AuditLog;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 
 class VotingService
 {
@@ -39,9 +40,8 @@ class VotingService
             $errors[] = 'Voting has already ended.';
         }
 
-        if (Vote::where('user_id', $user->id)
-            ->where('election_id', $election->id)
-            ->exists()) {
+        $voteHash = hash('sha256', $user->id . '_' . $election->id . '_' . config('app.key'));
+        if (Vote::where('vote_hash', $voteHash)->exists()) {
             $errors[] = 'You have already voted in this election.';
         }
 
@@ -50,11 +50,14 @@ class VotingService
 
     public function castVote(User $user, Candidate $candidate, Election $election): Vote
     {
+        $voteHash = hash('sha256', $user->id . '_' . $election->id . '_' . config('app.key'));
+
         $vote = Vote::create([
             'user_id' => $user->id,
             'candidate_id' => $candidate->id,
             'election_id' => $election->id,
             'timestamp' => Carbon::now(),
+            'vote_hash' => $voteHash,
         ]);
 
         AuditLog::create([
@@ -71,24 +74,31 @@ class VotingService
 
     public function computeResults(Election $election): array
     {
-        $results = Vote::where('election_id', $election->id)
-            ->selectRaw('candidate_id, COUNT(*) as total')
-            ->groupBy('candidate_id')
-            ->orderByDesc('total')
-            ->get();
+        $votes = Vote::where('election_id', $election->id)->get();
 
-        $totalVotes = $results->sum('total');
+        $tally = [];
+        foreach ($votes as $vote) {
+            $candidateId = $vote->candidate_id;
+            if (!isset($tally[$candidateId])) {
+                $tally[$candidateId] = 0;
+            }
+            $tally[$candidateId]++;
+        }
+        arsort($tally);
+
+        $totalVotes = count($votes);
         $ranked = [];
+        $rank = 1;
 
-        foreach ($results as $index => $row) {
-            $candidate = Candidate::with('user')->find($row->candidate_id);
+        foreach ($tally as $candidateId => $count) {
+            $candidate = Candidate::with('user')->find($candidateId);
             if (!$candidate) continue;
             $ranked[] = [
-                'rank' => $index + 1,
+                'rank' => $rank++,
                 'candidate' => $candidate,
-                'vote_count' => $row->total,
+                'vote_count' => $count,
                 'percentage' => $totalVotes > 0
-                    ? round(($row->total / $totalVotes) * 100, 1)
+                    ? round(($count / $totalVotes) * 100, 1)
                     : 0,
             ];
         }

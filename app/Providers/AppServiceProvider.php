@@ -20,6 +20,11 @@ class AppServiceProvider extends ServiceProvider
             foreach ($settings as $key => $value) {
                 config(['voting.' . $key => $value]);
             }
+
+            // Enforce session timeout from settings
+            if (isset($settings['session_timeout'])) {
+                config(['session.lifetime' => (int) $settings['session_timeout']]);
+            }
         } catch (\Exception $e) {
             // Table may not exist yet (first migration)
         }

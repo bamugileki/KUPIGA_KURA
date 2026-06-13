@@ -1,10 +1,11 @@
 @extends('layouts.admin')
 @section('title', $presetPosition === 'presidential' ? __t('register_presidential_candidate') : __t('register_parliamentary_candidate'))
+@section('subtitle', __t('register_candidate_subtitle'))
 @section('content')
 <div class="max-w-3xl mx-auto">
-    <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 class="text-xl font-bold text-gray-800">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-700">
                 @if($presetPosition === 'presidential')
                     {{ __t('register_presidential_candidate') }}
                 @elseif(in_array($presetPosition, ['parliamentary', 'councillor']))
@@ -102,16 +103,22 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('position_label') }} *</label>
                         <select name="position" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
-                            <option value="presidential" {{ old('position') == 'presidential' ? 'selected' : '' }}>{{ __t('presidential') }}</option>
-                            <option value="parliamentary" {{ old('position') == 'parliamentary' ? 'selected' : '' }}>{{ __t('parliamentary') }}</option>
-                            <option value="councillor" {{ old('position') == 'councillor' ? 'selected' : '' }}>{{ __t('councillor') }}</option>
+                            @foreach($positions as $pos)
+                            <option value="{{ $pos->slug }}" data-constituency="{{ $pos->requires_constituency ? '1' : '0' }}" data-running-mate="{{ $pos->requires_running_mate ? '1' : '0' }}" {{ old('position') == $pos->slug ? 'selected' : '' }}>
+                                {{ session('lang') == 'sw' ? $pos->name_sw : $pos->name_en }}
+                            </option>
+                            @endforeach
                         </select>
                     </div>
                     @else
                     <input type="hidden" name="position" value="{{ $presetPosition }}">
                     @endif
 
-                    @if(in_array($presetPosition, ['parliamentary', 'councillor']))
+                    @php
+                        $posModel = $positions->firstWhere('slug', $presetPosition);
+                    @endphp
+
+                    @if($posModel && $posModel->requires_constituency)
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('constituency') }} *</label>
                         <select name="constituency_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>

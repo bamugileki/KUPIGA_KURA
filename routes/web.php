@@ -11,6 +11,9 @@ use App\Http\Controllers\AnnouncementController;
 
 Route::get('/', [DashboardController::class, 'index'])->name('home');
 
+Route::get('/results/export/{election_id}', [DashboardController::class, 'exportResults'])->name('results.export');
+Route::get('/results/export-pdf/{election_id}', [DashboardController::class, 'exportResultsPdf'])->name('results.export_pdf');
+
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
@@ -20,8 +23,13 @@ Route::get('/language/{lang}', [AuthController::class, 'setLanguage'])->name('la
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/preview/voter', [DashboardController::class, 'previewVoter'])->name('preview.voter');
+    Route::get('/preview/candidate', [DashboardController::class, 'previewCandidate'])->name('preview.candidate');
+    Route::get('/preview/exit', [DashboardController::class, 'exitPreview'])->name('preview.exit');
     Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
     Route::post('/profile/change-password', [DashboardController::class, 'changePassword'])->name('profile.change_password');
+    Route::post('/profile/update-accessibility', [DashboardController::class, 'updateAccessibility'])->name('profile.update_accessibility');
+    Route::post('/accessibility/toggle-contrast', [DashboardController::class, 'toggleContrast'])->name('accessibility.toggle_contrast');
 
     Route::get('/candidates', [CandidateController::class, 'index'])->name('candidates');
     Route::get('/candidates/apply', [CandidateController::class, 'apply'])->name('candidates.apply');
@@ -47,11 +55,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/elections', [AdminController::class, 'elections'])->name('elections');
     Route::get('/votes', [AdminController::class, 'votesManage'])->name('votes');
     Route::get('/results', [AdminController::class, 'resultsManage'])->name('results');
-    Route::get('/results/export/{election_id}', [AdminController::class, 'exportResults'])->name('results.export');
+        Route::get('/results/export/{election_id}', [AdminController::class, 'exportResults'])->name('results.export');
+        Route::get('/results/export-pdf/{election_id}', [AdminController::class, 'exportResultsPdf'])->name('results.export_pdf');
 
     Route::get('/audit_logs', [AdminController::class, 'auditLogs'])->name('audit_logs');
     Route::get('/suspicious_logs', [AdminController::class, 'suspiciousLogs'])->name('suspicious_logs');
     Route::get('/assisted-votes', [AdminController::class, 'assistedVotes'])->name('assisted_votes');
+    Route::get('/accessibility-logs', [AdminController::class, 'accessibilityLogs'])->name('accessibility_logs');
 
     Route::get('/objections', [AdminController::class, 'objections'])->name('objections');
     Route::get('/objections/{id}', [AdminController::class, 'viewObjection'])->name('objections.view');
@@ -80,10 +90,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::match(['get', 'post'], '/elections/edit/{election_id}', [AdminController::class, 'editElection'])->name('elections.edit');
         Route::get('/elections/transition/{election_id}/{status}', [AdminController::class, 'transitionStatus'])->name('elections.transition');
         Route::get('/elections/generate_results/{election_id}', [AdminController::class, 'generateResults'])->name('elections.generate_results');
+        Route::get('/elections/declare-winner/{election_id}', [AdminController::class, 'declareWinner'])->name('elections.declare_winner');
+        Route::get('/elections/revoke-winner/{election_id}', [AdminController::class, 'revokeWinner'])->name('elections.revoke_winner');
         Route::get('/elections/delete/{election_id}', [AdminController::class, 'deleteElection'])->name('elections.delete');
 
-        Route::get('/votes/delete-all', [AdminController::class, 'deleteAllVotes'])->name('votes.delete_all');
-        Route::get('/results/clear', [AdminController::class, 'clearResults'])->name('results.clear');
+        // Routes removed: votes are immutable and cannot be deleted
 
         Route::get('/audit_logs/delete-all', [AdminController::class, 'deleteAllAuditLogs'])->name('audit_logs.delete_all');
         Route::get('/suspicious_logs/delete-all', [AdminController::class, 'deleteAllSuspiciousLogs'])->name('suspicious_logs.delete_all');
@@ -95,5 +106,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/users/approve/{user_id}', [AdminController::class, 'approveUser'])->name('users.approve');
         Route::get('/users/reject/{user_id}', [AdminController::class, 'rejectUser'])->name('users.reject');
         Route::match(['get', 'post'], '/settings', [AdminController::class, 'settings'])->name('settings');
+
+        Route::get('/positions', [AdminController::class, 'positions'])->name('positions');
+        Route::match(['get', 'post'], '/positions/create', [AdminController::class, 'createPosition'])->name('positions.create');
+        Route::match(['get', 'post'], '/positions/edit/{id}', [AdminController::class, 'editPosition'])->name('positions.edit');
+        Route::get('/positions/delete/{id}', [AdminController::class, 'deletePosition'])->name('positions.delete');
     });
 });

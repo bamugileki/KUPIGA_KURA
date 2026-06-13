@@ -31,6 +31,11 @@ class User extends Authenticatable
         'is_verified',
         'email_verified',
         'terms_accepted',
+        'accessibility_enabled',
+        'disability_type',
+        'accessibility_mode',
+        'high_contrast',
+        'text_size',
     ];
 
     protected $hidden = [
@@ -47,6 +52,9 @@ class User extends Authenticatable
         'is_verified' => 'boolean',
         'email_verified' => 'boolean',
         'terms_accepted' => 'boolean',
+        'accessibility_enabled' => 'boolean',
+        'high_contrast' => 'boolean',
+        'disability_type' => 'json',
         'locked_until' => 'datetime',
         'created_at' => 'datetime',
     ];

@@ -40,9 +40,11 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('position_label') }} *</label>
                         <select name="position" id="position_select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
                             <option value="">{{ __t('select') }}</option>
-                            <option value="presidential" {{ old('position') == 'presidential' ? 'selected' : '' }}>{{ __t('presidential') }}</option>
-                            <option value="parliamentary" {{ old('position') == 'parliamentary' ? 'selected' : '' }}>{{ __t('parliamentary') }}</option>
-                            <option value="councillor" {{ old('position') == 'councillor' ? 'selected' : '' }}>{{ __t('councillor') }}</option>
+                            @foreach($positions as $pos)
+                            <option value="{{ $pos->slug }}" data-constituency="{{ $pos->requires_constituency ? '1' : '0' }}" {{ old('position') == $pos->slug ? 'selected' : '' }}>
+                                {{ session('lang') == 'sw' ? $pos->name_sw : $pos->name_en }}
+                            </option>
+                            @endforeach
                         </select>
                         @error('position') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
@@ -134,7 +136,9 @@
 document.getElementById('position_select')?.addEventListener('change', function() {
     var fieldset = document.getElementById('constituency_fieldset');
     var constituencySelect = fieldset.querySelector('select');
-    if (this.value === 'parliamentary' || this.value === 'councillor') {
+    var selected = this.options[this.selectedIndex];
+    var requiresConstituency = selected.getAttribute('data-constituency') === '1';
+    if (requiresConstituency) {
         fieldset.style.display = '';
         constituencySelect.required = true;
     } else {

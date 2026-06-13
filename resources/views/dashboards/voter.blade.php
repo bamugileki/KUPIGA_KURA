@@ -155,7 +155,7 @@
                 @forelse($recentAnnouncements as $ann)
                     <div class="border-l-4 border-blue-500 pl-3">
                         <p class="text-gray-700">{{ $ann->details }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ $ann->timestamp->format('d M Y H:i') }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ $ann->published_at->format('d M Y H:i') }}</p>
                     </div>
                 @empty
                     <p class="text-gray-500 text-center py-4">{{ __t('no_announcements') }}</p>

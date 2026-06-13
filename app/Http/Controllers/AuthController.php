@@ -30,6 +30,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect()->route('dashboard');
         }
+        $this->generateCaptcha();
         return view('auth.register');
     }
 
@@ -47,7 +48,12 @@ class AuthController extends Controller
             'nida_number' => 'nullable|string|size:25|unique:users,nida_number',
             'driving_licence' => 'nullable|string|max:30|unique:users,driving_licence',
             'nhif_number' => 'nullable|string|max:20|unique:users,nhif_number',
+            'captcha' => 'required|string',
         ]);
+
+        if (!$this->validateCaptcha($request->captcha)) {
+            return back()->withErrors(['captcha' => 'Incorrect CAPTCHA answer. Please try again.'])->withInput();
+        }
 
         $user = User::create([
             'full_name' => $request->full_name,
@@ -60,6 +66,11 @@ class AuthController extends Controller
             'role' => 'voter',
             'is_voter' => true,
             'status' => 'pending',
+            'accessibility_enabled' => $request->boolean('accessibility_enabled'),
+            'disability_type' => json_encode($request->input('disability_type', [])),
+            'accessibility_mode' => $request->input('accessibility_mode', 'normal'),
+            'high_contrast' => $request->boolean('high_contrast'),
+            'text_size' => $request->input('text_size', 'medium'),
         ]);
 
         AuditLog::create([
@@ -79,6 +90,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect()->route('dashboard');
         }
+        $this->generateCaptcha();
         return view('auth.login');
     }
 
@@ -118,7 +130,12 @@ class AuthController extends Controller
         $request->validate([
             'identifier' => 'required|string',
             'password' => 'required|string',
+            'captcha' => 'required|string',
         ]);
+
+        if (!$this->validateCaptcha($request->captcha)) {
+            return back()->withErrors(['captcha' => 'Incorrect CAPTCHA answer. Please try again.'])->withInput();
+        }
 
         $identifier = $request->identifier;
         $ipAddress = $request->ip();
@@ -203,5 +220,24 @@ class AuthController extends Controller
         }
 
         return redirect()->intended(route('dashboard'));
+    }
+
+    protected function generateCaptcha(): void
+    {
+        $num1 = rand(1, 20);
+        $num2 = rand(1, 20);
+        $ops = ['+', '-'];
+        $op = $ops[array_rand($ops)];
+        if ($op === '-' && $num2 > $num1) {
+            [$num1, $num2] = [$num2, $num1];
+        }
+        $answer = $op === '+' ? $num1 + $num2 : $num1 - $num2;
+
+        session(['captcha_answer' => $answer, 'captcha_question' => "$num1 $op $num2"]);
+    }
+
+    protected function validateCaptcha(string $input): bool
+    {
+        return (int) $input === session('captcha_answer', -1);
     }
 }

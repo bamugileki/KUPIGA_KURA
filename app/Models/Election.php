@@ -20,6 +20,8 @@ class Election extends Model
         'status',
         'candidates_published',
         'voting_enabled',
+        'winner_declared',
+        'winner_candidate_id',
         'created_by',
     ];
 
@@ -34,6 +36,7 @@ class Election extends Model
         'objection_triggered' => 'boolean',
         'candidates_published' => 'boolean',
         'voting_enabled' => 'boolean',
+        'winner_declared' => 'boolean',
     ];
 
     public function creator()
@@ -141,6 +144,17 @@ class Election extends Model
     public function objections()
     {
         return $this->hasMany(\App\Models\Objection::class);
+    }
+
+    public function winnerCandidate()
+    {
+        return $this->belongsTo(Candidate::class, 'winner_candidate_id');
+    }
+
+    public function getWinnerAttribute()
+    {
+        if (!$this->winner_declared || !$this->winner_candidate_id) return null;
+        return Candidate::with('user')->find($this->winner_candidate_id);
     }
 
     public function scopeVisible($query)

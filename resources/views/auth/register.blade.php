@@ -48,6 +48,97 @@
                     <input type="text" name="nhif_number" value="{{ old('nhif_number') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 </div>
             </div>
+
+            {{-- Accessibility Section --}}
+            <hr class="my-4">
+            <div class="mb-6">
+                <h3 class="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    ♿ {{ __t('accessibility_setup') }}
+                </h3>
+                <p class="text-xs text-gray-500 mb-3">{{ __t('accessibility_registration_hint') }}</p>
+
+                <label class="flex items-center gap-3 cursor-pointer mb-4">
+                    <input type="checkbox" name="accessibility_enabled" value="1" {{ old('accessibility_enabled') ? 'checked' : '' }} class="w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500" id="regAccessToggle">
+                    <span class="text-sm font-medium text-gray-700">{{ __t('enable_accessibility') }}</span>
+                </label>
+
+                <div id="regAccessFields" class="space-y-4 {{ old('accessibility_enabled') ? '' : 'hidden' }}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('disability_type') }}</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            @foreach([
+                                ['value' => 'visual', 'label_en' => 'Vision Impairment', 'label_sw' => 'Ulemavu wa Macho'],
+                                ['value' => 'hearing', 'label_en' => 'Hearing Impairment', 'label_sw' => 'Ulemavu wa Kusikia'],
+                                ['value' => 'cognitive', 'label_en' => 'Cognitive Disability', 'label_sw' => 'Ulemavu wa Akili'],
+                                ['value' => 'motor', 'label_en' => 'Physical/Motor Disability', 'label_sw' => 'Ulemavu wa Mwili'],
+                                ['value' => 'elderly', 'label_en' => 'Elderly Support', 'label_sw' => 'Msaada kwa Wazee'],
+                                ['value' => 'speech', 'label_en' => 'Speech Impairment', 'label_sw' => 'Ulemavu wa Kuongea'],
+                                ['value' => 'other', 'label_en' => 'Other / Prefer not to say', 'label_sw' => 'Nyingine / Sitaki kusema'],
+                            ] as $d)
+                            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                <input type="checkbox" name="disability_type[]" value="{{ $d['value'] }}"
+                                    {{ in_array($d['value'], old('disability_type', [])) ? 'checked' : '' }}
+                                    class="rounded border-gray-300 text-blue-900 focus:ring-blue-500">
+                                {{ session('lang') == 'sw' ? $d['label_sw'] : $d['label_en'] }}
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('accessibility_mode_label') }}</label>
+                        <select name="accessibility_mode" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                            <option value="normal" {{ old('accessibility_mode') === 'normal' ? 'selected' : '' }}>{{ __t('mode_normal') }}</option>
+                            <option value="blind" {{ old('accessibility_mode') === 'blind' ? 'selected' : '' }}>{{ __t('mode_blind') }}</option>
+                            <option value="low_vision" {{ old('accessibility_mode') === 'low_vision' ? 'selected' : '' }}>{{ __t('mode_low_vision') }}</option>
+                            <option value="hearing" {{ old('accessibility_mode') === 'hearing' ? 'selected' : '' }}>{{ __t('mode_hearing') }}</option>
+                            <option value="motor" {{ old('accessibility_mode') === 'motor' ? 'selected' : '' }}>{{ __t('mode_motor') }}</option>
+                            <option value="cognitive" {{ old('accessibility_mode') === 'cognitive' ? 'selected' : '' }}>{{ __t('mode_cognitive') }}</option>
+                            <option value="elderly" {{ old('accessibility_mode') === 'elderly' ? 'selected' : '' }}>{{ __t('mode_elderly') }}</option>
+                            <option value="assisted" {{ old('accessibility_mode') === 'assisted' ? 'selected' : '' }}>{{ __t('mode_assisted') }}</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __t('text_size') }}</label>
+                            <select name="text_size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                                <option value="small" {{ old('text_size') === 'small' ? 'selected' : '' }}>{{ __t('text_small') }}</option>
+                                <option value="medium" {{ old('text_size') === 'medium' || !old('text_size') ? 'selected' : '' }}>{{ __t('text_medium') }}</option>
+                                <option value="large" {{ old('text_size') === 'large' ? 'selected' : '' }}>{{ __t('text_large') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 mt-6 cursor-pointer">
+                                <input type="checkbox" name="high_contrast" value="1" {{ old('high_contrast') ? 'checked' : '' }} class="w-5 h-5 rounded border-gray-300 text-blue-900 focus:ring-blue-500">
+                                <span class="text-sm font-medium text-gray-700">{{ __t('high_contrast') }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+                        <strong>{{ __t('accessibility_privacy_note_title') }}:</strong> {{ __t('accessibility_privacy_note') }}
+                    </div>
+
+                    {{-- Accessibility Confirmation --}}
+                    <div id="regAccessConfirm" class="hidden mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="accessibility_confirmed" value="1" class="mt-1 w-5 h-5 rounded border-gray-300 text-amber-700 focus:ring-amber-500">
+                            <div>
+                                <span class="text-sm font-medium text-amber-900">{{ __t('accessibility_confirm_label') }}</span>
+                                <p class="text-xs text-amber-700 mt-1">{{ __t('accessibility_confirm_text') }}</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Security Check: {{ session('captcha_question') }} = ?</label>
+                <input type="number" name="captcha" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required placeholder="Enter the answer">
+                @error('captcha') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
             <button type="submit" class="w-full bg-blue-900 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-800">{{ __t('register_btn') }}</button>
         </form>
         <p class="text-center text-sm text-gray-600 mt-4">
@@ -55,4 +146,18 @@
         </p>
     </div>
 </div>
+
+<script>
+(function() {
+    var toggle = document.getElementById('regAccessToggle');
+    var fields = document.getElementById('regAccessFields');
+    var confirmBox = document.getElementById('regAccessConfirm');
+    if (toggle && fields) {
+        toggle.addEventListener('change', function() {
+            fields.classList.toggle('hidden', !this.checked);
+            if (confirmBox) confirmBox.classList.toggle('hidden', !this.checked);
+        });
+    }
+})();
+</script>
 @endsection

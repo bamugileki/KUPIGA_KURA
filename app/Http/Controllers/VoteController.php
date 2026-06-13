@@ -33,9 +33,8 @@ class VoteController extends Controller
         $election = Election::findOrFail($electionId);
         $user = Auth::user();
 
-        $existingVote = Vote::where('user_id', $user->id)
-            ->where('election_id', $electionId)
-            ->first();
+        $voteHash = hash('sha256', $user->id . '_' . $electionId . '_' . config('app.key'));
+        $existingVote = Vote::where('vote_hash', $voteHash)->first();
 
         if ($existingVote) {
             $candidate = Candidate::with('user')->find($existingVote->candidate_id);
@@ -59,7 +58,8 @@ class VoteController extends Controller
             ->with('user')
             ->get();
 
-        if (in_array($election->election_type, ['parliamentary', 'councillor'])) {
+        $position = \App\Models\Position::where('slug', $election->election_type)->first();
+        if ($position && $position->requires_constituency) {
             $candidates = $candidates->filter(function($c) use ($user) {
                 return $c->constituency_id == $user->constituency_id;
             });
@@ -134,9 +134,8 @@ class VoteController extends Controller
                 return back()->with('error', 'This voter has already received assistance in this election.');
             }
 
-            $existingVote = Vote::where('user_id', $voter->id)
-                ->where('election_id', $electionId)
-                ->first();
+            $voteHash = hash('sha256', $voter->id . '_' . $electionId . '_' . config('app.key'));
+            $existingVote = Vote::where('vote_hash', $voteHash)->first();
 
             if ($existingVote) {
                 return back()->with('error', 'This voter has already voted in this election.');
@@ -147,7 +146,8 @@ class VoteController extends Controller
                 ->with('user')
                 ->get();
 
-            if (in_array($election->election_type, ['parliamentary', 'councillor'])) {
+            $position = \App\Models\Position::where('slug', $election->election_type)->first();
+            if ($position && $position->requires_constituency) {
                 $candidates = $candidates->filter(function($c) use ($voter) {
                     return $c->constituency_id == $voter->constituency_id;
                 });
@@ -203,9 +203,8 @@ class VoteController extends Controller
             return back()->with('error', 'This voter has already received assistance in this election.');
         }
 
-        $existingVote = Vote::where('user_id', $voter->id)
-            ->where('election_id', $electionId)
-            ->first();
+        $voteHash = hash('sha256', $voter->id . '_' . $electionId . '_' . config('app.key'));
+        $existingVote = Vote::where('vote_hash', $voteHash)->first();
 
         if ($existingVote) {
             return back()->with('error', 'This voter has already voted in this election.');
@@ -259,7 +258,8 @@ class VoteController extends Controller
             return back()->with('error', 'Invalid candidate selected.');
         }
 
-        if (in_array($election->election_type, ['parliamentary', 'councillor'])) {
+        $position = \App\Models\Position::where('slug', $election->election_type)->first();
+        if ($position && $position->requires_constituency) {
             if ($candidate->constituency_id != $voter->constituency_id) {
                 return back()->with('error', 'Candidate does not belong to the voter constituency.');
             }

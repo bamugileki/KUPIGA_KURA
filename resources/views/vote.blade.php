@@ -23,8 +23,9 @@
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-xl font-bold text-gray-800">{{ session('lang') == 'sw' ? $election->title_sw : $election->title_en }}</h2>
             <p class="text-sm text-gray-500 mt-1">
-                {{ __t($election->election_type) }}
-                @if(in_array($election->election_type, ['parliamentary', 'councillor']) && Auth::user()->constituency)
+                @php $pos = \App\Models\Position::where('slug', $election->election_type)->first(); @endphp
+                {{ session('lang') == 'sw' ? ($pos->name_sw ?? $election->election_type) : ($pos->name_en ?? $election->election_type) }}
+                @if($pos && $pos->requires_constituency && Auth::user()->constituency)
                     | {{ __t('constituency') }}: {{ Auth::user()->constituency->name }}
                 @endif
             </p>
@@ -54,6 +55,9 @@
                                     @endif
                                     <span class="text-sm font-medium text-blue-900">{{ $candidate->party_abbreviation }}</span>
                                 </div>
+                                @if($candidate->running_mate_name)
+                                <p class="text-xs text-gray-500 mt-1">{{ __t('running_mate') }}: {{ $candidate->running_mate_name }}</p>
+                                @endif
                                 @if($candidate->constituency)
                                 <p class="text-xs text-gray-500 mt-1">{{ $candidate->constituency }}</p>
                                 @endif

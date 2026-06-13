@@ -28,6 +28,12 @@ class PoliticalPartySeeder extends Seeder
             ['name' => 'Jahazi Asilia', 'abbreviation' => 'JAHAZI ASILIA', 'registration_number' => '016'],
             ['name' => 'Party of National Awareness', 'abbreviation' => 'PONA', 'registration_number' => '017'],
             ['name' => 'PPT-Maendeleo', 'abbreviation' => 'PPT-Maendeleo', 'registration_number' => '018'],
+            ['name' => 'Chama cha Ukombozi wa Umma', 'abbreviation' => 'Chaumma', 'registration_number' => '019'],
+            ['name' => 'National Reconstruction Alliance', 'abbreviation' => 'NRA', 'registration_number' => '020'],
+            ['name' => 'Chama Cha Makini', 'abbreviation' => 'Makini', 'registration_number' => '021'],
+            ['name' => 'Alliance for African Farmers Party', 'abbreviation' => 'AAFP', 'registration_number' => '022'],
+            ['name' => 'African Democratic Alliance Party', 'abbreviation' => 'ADAP', 'registration_number' => '023'],
+            ['name' => 'Union for Multiparty Democracy', 'abbreviation' => 'UMD', 'registration_number' => '024'],
         ];
 
         foreach ($parties as $party) {

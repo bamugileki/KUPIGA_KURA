@@ -6,6 +6,7 @@ use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\Constituency;
 use App\Models\PoliticalParty;
+use App\Models\Position;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -39,9 +40,13 @@ class CandidateController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->is_candidate || Candidate::where('user_id', $user->id)->exists()) {
+        if (!session('preview_role') && ($user->is_candidate || Candidate::where('user_id', $user->id)->exists())) {
             return redirect()->route('dashboard')
                 ->with('error', 'You are already registered as a candidate.');
+        }
+
+        if (session('preview_role')) {
+            session()->flash('info', 'You are in preview mode. Submissions are disabled.');
         }
 
         $elections = Election::whereIn('status', ['nomination_open', 'published', 'campaign_period'])
@@ -50,13 +55,19 @@ class CandidateController extends Controller
 
         $parties = PoliticalParty::where('status', 'active')->get();
         $constituencies = Constituency::orderBy('name')->get();
+        $positions = Position::orderBy('sort_order')->get();
 
-        return view('candidates.apply', compact('elections', 'parties', 'constituencies'));
+        return view('candidates.apply', compact('elections', 'parties', 'constituencies', 'positions'));
     }
 
     public function storeApplication(Request $request)
     {
         $user = auth()->user();
+
+        if (session('preview_role')) {
+            return redirect()->route('dashboard')
+                ->with('info', 'Submissions are disabled in preview mode.');
+        }
 
         if ($user->is_candidate || Candidate::where('user_id', $user->id)->exists()) {
             return redirect()->route('dashboard')
@@ -65,9 +76,9 @@ class CandidateController extends Controller
 
         $validated = $request->validate([
             'election_id' => 'required|integer|exists:elections,id',
-            'position' => 'required|in:presidential,parliamentary,councillor',
+            'position' => 'required|exists:positions,slug',
             'party_id' => 'required|integer|exists:political_parties,id',
-            'constituency_id' => 'required_if:position,parliamentary,councillor|nullable|integer|exists:constituencies,id',
+            'constituency_id' => 'nullable|integer|exists:constituencies,id',
             'manifesto' => 'nullable|string|max:5000',
             'biography' => 'nullable|string|max:5000',
             'education' => 'nullable|string|max:5000',

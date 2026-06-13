@@ -40,6 +40,7 @@ class Candidate extends Model
         'running_mate_name',
         'running_mate_photo',
         'nomination_submitted_at',
+        'rejection_reason',
     ];
 
     protected $casts = [

@@ -14,9 +14,14 @@
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ __t('login_identifier') }}</label>
                 <input type="text" name="identifier" value="{{ old('identifier') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required placeholder="{{ __t('nida') }} / {{ __t('driving_licence_label') }} / {{ __t('nhif') }}">
             </div>
-            <div class="mb-6">
+            <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ __t('password') }}</label>
                 <input type="password" name="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Security Check: {{ session('captcha_question') }} = ?</label>
+                <input type="number" name="captcha" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required placeholder="Enter the answer">
+                @error('captcha') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             <button type="submit" class="w-full bg-blue-900 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-800">{{ __t('login_btn') }}</button>
         </form>

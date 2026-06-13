@@ -69,13 +69,34 @@
     {{-- Results Preview --}}
     <div class="bg-white rounded-xl shadow-md p-6 fade-in-up stagger-4">
         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">{{ __t('results') }}</h2>
-        <div class="text-center py-8">
-            <div class="text-4xl mb-3">
-                <svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        @if($closedElections->isNotEmpty())
+            <div class="space-y-3">
+                @foreach($closedElections as $election)
+                <div class="border border-gray-100 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-sm text-gray-800">{{ session('lang') == 'sw' ? $election->title_sw : $election->title_en }}</h3>
+                            @if($election->winner_declared && $election->winnerCandidate)
+                            <p class="text-xs text-gray-500">{{ __t('winner') }}: <span class="font-medium text-yellow-700">{{ $election->winnerCandidate->full_name }}</span></p>
+                            @endif
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <a href="{{ route('results.export', $election->id) }}" class="text-xs bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700 transition">{{ __t('download_csv') }}</a>
+                            <a href="{{ route('results.export_pdf', $election->id) }}" class="text-xs bg-red-600 text-white px-2 py-0.5 rounded hover:bg-red-700 transition" target="_blank">{{ __t('download_pdf') }}</a>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
             </div>
-            <p class="text-sm text-gray-600">{{ __t('results_published_after') }}</p>
-            <span class="inline-block mt-2 text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">{{ __t('locked_fairness') }}</span>
-        </div>
+        @else
+            <div class="text-center py-8">
+                <div class="text-4xl mb-3">
+                    <svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <p class="text-sm text-gray-600">{{ __t('results_published_after') }}</p>
+                <span class="inline-block mt-2 text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">{{ __t('locked_fairness') }}</span>
+            </div>
+        @endif
     </div>
 
     {{-- Security & Integrity --}}
@@ -177,6 +198,79 @@
             <svg class="w-8 h-8 mx-auto mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             <p class="font-semibold text-sm">{{ __t('observer_role') }}</p>
             <p class="text-xs text-gray-500">{{ __t('observer_role_desc') }}</p>
+        </div>
+    </div>
+</div>
+
+{{-- Contact Us / Wasiliana Nasi --}}
+<div class="bg-white rounded-xl shadow-md p-6 mb-12 fade-in-up stagger-8" id="contact">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">{{ __t('contact_us') }}</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <div class="flex items-start space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">{{ __t('address') }}</h3>
+                    <p class="text-sm text-gray-600">Tume Huru ya Taifa ya Uchaguzi</p>
+                    <p class="text-sm text-gray-600">Jengo la Uchaguzi, Eneo la Uwekezaji Njedengwa,</p>
+                    <p class="text-sm text-gray-600">Kitalu D, Kiwanja Na. 4,</p>
+                    <p class="text-sm text-gray-600">5 Barabara ya Uchaguzi,</p>
+                    <p class="text-sm text-gray-600">S.L.P 358, 41107 DODOMA</p>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">{{ __t('email') }}</h3>
+                    <a href="mailto:uchaguzi@inec.go.tz" class="text-sm text-blue-700 hover:underline">uchaguzi@inec.go.tz</a>
+                </div>
+            </div>
+            <div class="flex items-start space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">{{ __t('phone') }}</h3>
+                    <a href="tel:+255262962345" class="text-sm text-blue-700 hover:underline">+255 26 2962345-8</a>
+                    <a href="tel:+255262962348" class="text-sm text-blue-700 hover:underline">+255 26 2962348</a>
+                </div>
+            </div>
+        </div>
+        <div>
+            <h3 class="font-bold text-gray-800 mb-4 text-lg">{{ __t('get_in_touch') }}</h3>
+            <div class="space-y-4">
+                <a href="https://inec.go.tz" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition group">
+                    <div class="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 group-hover:text-blue-900">inec.go.tz</p>
+                        <p class="text-xs text-gray-500">{{ __t('visit_website') }}</p>
+                    </div>
+                </a>
+                <a href="https://www.youtube.com/@INECTZ" target="_blank" rel="noopener noreferrer" class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 hover:bg-red-50 transition group">
+                    <div class="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 group-hover:text-red-700">INEC-TZ Online TV</p>
+                        <p class="text-xs text-gray-500">{{ __t('watch_on_youtube') }}</p>
+                    </div>
+                </a>
+                <div class="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
+                    <div class="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800">{{ __t('commission_name') }}</p>
+                        <p class="text-xs text-gray-500">{{ __t('visit_office') }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
